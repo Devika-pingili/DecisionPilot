@@ -1,0 +1,26 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments and local environment files
+.venv/
+venv/
+env/
+.env
+.env.*
+
+# VS Code local settings
+.vscode/
+
+# Raw and generated datasets
+# The Instacart source data must remain outside Git.
+data/raw/
+data/processed/
+
+# Local logs and temporary files
+*.log
+*.tmp
