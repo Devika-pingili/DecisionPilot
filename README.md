@@ -262,6 +262,16 @@ Open the dashboard at [http://localhost:5173/](http://localhost:5173/). The fron
 
 The backend requires the already-prepared `data/processed/history.sqlite` and `data/processed/ml_dev/model.joblib`. These generated artifacts are not included in Git. Do not rerun data preparation or model training for normal startup when the local artifacts are present.
 
+### Render Start Command
+
+For a Render Python web service, use this Start Command:
+
+```text
+uvicorn backend.api.main:app --host 0.0.0.0 --port $PORT
+```
+
+Uvicorn supplies the network binding; the FastAPI application itself does not fix a host or port. Keep the local PowerShell command above for development. The history database and saved model are intentionally not stored in Git, so a cloud service also needs those existing artifacts provisioned at the paths expected by the backend before it can serve recommendations. No Dockerfile or deployment configuration file is required for this command-based setup.
+
 ## Optional AI Configuration
 
 The AI explanation layer is optional. To enable provider requests, configure these variables in the **backend process environment only** before starting Uvicorn:

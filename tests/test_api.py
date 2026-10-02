@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+import uvicorn
 
 from backend.api.main import create_app
 from backend.features.history import HistoryStore
@@ -34,6 +35,14 @@ class RecommendationApiTests(unittest.TestCase):
             {"name": "DecisionPilot", "status": "ok", "version": "1.0"},
         )
         self.assertEqual(self.client.get("/health").json(), {"status": "healthy"})
+
+    def test_fastapi_app_accepts_external_deployment_host_and_port(self):
+        application = create_app(history=self.history, model=self.model)
+        server_config = uvicorn.Config(application, host="0.0.0.0", port=45678)
+
+        self.assertIs(server_config.app, application)
+        self.assertEqual(server_config.host, "0.0.0.0")
+        self.assertEqual(server_config.port, 45678)
 
     def test_ai_diagnostics_are_loopback_only_and_do_not_include_credentials(self):
         response = self.client.get("/diagnostics/ai")
