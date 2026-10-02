@@ -1,398 +1,552 @@
-# DecisionPilot
+# 🚀 DecisionPilot — AI-Powered Next Basket Prediction
 
-DecisionPilot is a personalized next-basket product recommendation system built from historical Instacart orders. It constructs point-in-time customer and product features, generates candidate products, and uses a saved `HistGradientBoostingClassifier` to rank them. The FastAPI backend serves recommendations and deterministic evidence; a Vue 3 dashboard presents the results and customer insights. An optional AI layer can explain verified evidence on request, but it does not select products or affect ranking.
+## 💡 Project Overview
 
-## Problem Statement
+**DecisionPilot** is a personalized next-basket prediction system that uses a customer's historical purchase behavior to rank products that are most likely to appear in their next order.
 
-Recommendations based only on general popularity can miss differences in customers' purchasing patterns. DecisionPilot uses historical context such as product purchase frequency, recency, reorder behavior, and department or aisle affinity to rank candidate products for a customer's next basket. These signals provide relevant context while keeping the prediction grounded in data available before the target order.
+Instead of recommending only globally popular products, DecisionPilot combines customer-specific purchasing behavior with product, department, aisle, and global popularity signals.
 
-## Objectives
+### 🎯 Problem Statement
 
-- Build a personalized next-basket recommendation system.
-- Generate candidates from customer history and popularity signals.
-- Construct features using only information available before each prediction target.
-- Prevent target-order and future-order information from leaking into features.
-- Train and load a supervised classification model for candidate scoring.
-- Provide deterministic, evidence-based explanations.
-- Serve recommendations through a FastAPI API and display them in an interactive dashboard.
-- Keep AI explanations optional and prevent AI from changing recommendation rankings.
+Given a customer's observed order history:
 
-## Key Features
+> **Which products are most likely to appear in the customer's next order?**
 
-### Personalized Recommendations
+The system generates a set of candidate products, calculates historical features, uses a machine-learning model to score the candidates, and produces an ordered Top-K recommendation list with evidence-based explanations.
 
-Products are ranked for an individual customer using historical behavior and product/category signals. The model scores candidates supplied by the existing candidate generator; it does not score the entire catalog.
+---
 
-### Point-in-Time Prediction
+## 🛠️ Technologies Used
 
-For a target order numbered `N`, customer history is restricted to orders with `order_number < N`. The target order and later orders are excluded from feature construction. Cutoff-aware global product and category statistics are used where applicable.
+### Frontend
 
-### Candidate Generation
+* Vue 3
+* Vite
+* JavaScript
+* HTML
+* CSS
 
-The deterministic candidate set can include:
+### Backend
 
-- Products purchased previously by the customer, with frequent products prioritized.
-- Products in the customer's recent orders.
-- Products showing customer reorder behavior.
-- Popular products in departments or aisles the customer has used.
-- Global popularity candidates as a fallback source.
+* Python
+* FastAPI
+* Uvicorn
 
-The generated union is bounded by the configured candidate/source limits.
+### Machine Learning
 
-### ML Ranking
+* scikit-learn
+* `HistGradientBoostingClassifier`
+* joblib
 
-The project uses scikit-learn's `HistGradientBoostingClassifier` as a binary classifier to estimate candidate scores. It is not a specialized learning-to-rank algorithm. Candidates are sorted by model score, with product ID as the deterministic tie-breaker. Scores are ranking values and are **not calibrated probabilities**.
+### Data Processing
 
-### Explainable Recommendations
+* Pandas
+* NumPy
+* CSV
 
-The recommendation service derives deterministic reason codes from verified point-in-time feature values:
+### Database / Storage
 
-| Reason code | Evidence represented |
-| --- | --- |
-| `CUSTOMER_FREQUENT` | The product appeared in multiple previous customer orders. |
-| `CUSTOMER_RECENT` | The product appeared in the customer's recent orders. |
-| `CUSTOMER_REORDER` | The customer's historical rows show reorder behavior for the product. |
-| `DEPARTMENT_AFFINITY` | The customer has historical purchases in the product's department. |
-| `AISLE_AFFINITY` | The customer has historical purchases in the product's aisle. |
-| `GLOBAL_POPULARITY` | The product has prior purchase history across customers. |
+* SQLite
 
-The API returns these codes with deterministic explanation text. The dashboard renders the corresponding evidence badges.
+### Development & Version Control
 
-### Customer Insights
+* VS Code
+* Git
+* GitHub
 
-The dashboard reuses the existing customer summary and recommendation responses to display purchase behavior, reason-code counts, highest and average displayed recommendation scores, recommendation count, and a top-recommendation highlight with its deterministic explanation.
+### Deployment
+
+* Vercel — Frontend
+* Render — Backend
+
+### Dataset
+
+* Instacart Market Basket Analysis Dataset
+* Kaggle
 
 ### Optional AI Explanation
 
-The user can request an explanation for the top recommendation. The backend verifies the product and reason codes using its own recommendation pipeline and sends only the product name and allowlisted evidence to the OpenAI provider. AI does not select, score, or rerank products and receives no customer/order identifiers or full purchase history. If AI is unavailable, the deterministic explanation remains available. Live provider generation depends on backend credentials, network access, and account quota; live generation is not confirmed for the current demo environment.
+* OpenAI Python SDK
 
-## System Architecture
+---
 
-```text
-Instacart historical data
-  |
-  v
-Data preparation and sparse history index
-  |
-  v
-Point-in-time feature engineering
-  |
-  v
-Candidate generation
-  |
-  v
-ML feature dataset and saved classifier
-  |
-  v
-Recommendation scoring and deterministic ranking
-  |
-  v
-Verified reason codes and deterministic explanation
-  |
-  +----> Optional on-demand AI explanation
-  |
-  v
-FastAPI backend
-  |
-  v
-Vue 3 dashboard
-```
-
-- **Data preparation** validates source CSVs and builds prepared feature files.
-- **History and features** use prior orders and cutoff-specific aggregates to construct customer, product, department, and aisle signals.
-- **Candidate generation** combines customer-specific products with category/global popularity candidates.
-- **ML dataset and model** use rolling prior-order targets, binary product-presence labels, and a saved classifier.
-- **Recommendation service** scores and sorts candidates, then derives reason codes from the same point-in-time features.
-- **FastAPI** exposes the customer summary, recommendations, and on-demand explanation endpoints.
-- **Vue dashboard** presents recommendations, customer insights, deterministic evidence, and the optional AI explanation state.
-
-## Data and Dataset
-
-DecisionPilot uses the Instacart Market Basket Analysis data files:
-
-- `orders.csv`
-- `order_products__prior.csv`
-- `order_products__train.csv`
-- `products.csv`
-- `aisles.csv`
-- `departments.csv`
-
-In the source data, `prior` contains observed order history, `train` contains labeled target-order products, and `test` represents an unlabeled future inference population. The project's rolling development and validation examples are constructed from prior orders; `order_products__train.csv` is not used to build prediction features.
-
-The prediction unit is:
+## ⚙️ Project Workflow
 
 ```text
-(customer_id, target_order_id, target_order_number, candidate_product_id)
+Instacart Dataset
+       ↓
+Data Validation & Preparation
+       ↓
+Point-in-Time History
+       ↓
+Candidate Generation
+       ↓
+Feature Engineering
+       ↓
+Machine Learning Model
+       ↓
+Recommendation Scores
+       ↓
+Deterministic Ranking
+       ↓
+Evidence-Based Explanation
+       ↓
+FastAPI Backend
+       ↓
+Vue.js Frontend
+       ↓
+Personalized Recommendations
 ```
 
-For a candidate product, `y = 1` if that product appears in the target order and `y = 0` otherwise. Target products are used to construct labels only; they are not passed into point-in-time feature construction.
+### 1. Data Preparation
 
-The repository's current ML development artifact was built with a bounded configuration of the first 100 sorted eligible customers. It contains 250,583 candidate rows across 1,318 target groups, split into 189,868 training rows and 60,715 validation rows. These are local generated artifacts, not files committed to the repository.
+The project validates the Instacart dataset for:
 
-Raw source data and processed outputs are expected locally under `data/raw/instacart/` and `data/processed/`. They are excluded from Git. A fresh clone does not include these data or model artifacts; the demo commands below assume the existing local artifacts are already available.
+* Required columns
+* Data types
+* Value ranges
+* Duplicate IDs
+* Catalog relationships
+* Missing joins
+* Transaction key duplication
+* Empty files
 
-### Prepare a Bounded Render Demo
+The processed data is then used for feature construction and recommendation generation.
 
-From a workspace with the full raw Instacart CSVs and saved model, create a bounded demo bundle once:
+### 2. Point-in-Time Feature Construction
+
+For a target order with order number `N`, only historical orders satisfying:
+
+```text
+order_number < N
+```
+
+are used.
+
+This prevents future information from leaking into the prediction features.
+
+### 3. Candidate Generation
+
+Candidate products are generated from:
+
+* Historically purchased products
+* Recent N-order products
+* Frequently purchased products
+* Customer-specific reorder behavior
+* Department/aisle popularity
+* Global popularity fallback
+
+### 4. Feature Engineering
+
+DecisionPilot creates features representing:
+
+* Customer-product behavior
+* Customer-level behavior
+* Product/global popularity
+* Department affinity
+* Aisle affinity
+* Historical reorder behavior
+* Recency and frequency signals
+
+All features are calculated using information available before the target order.
+
+### 5. Machine Learning
+
+The project uses:
+
+**HistGradientBoostingClassifier**
+
+The model produces a score for each candidate product.
+
+These scores are used for ranking and are **not calibrated probabilities**.
+
+### 6. Recommendation Ranking
+
+Candidates are sorted by:
+
+1. Model score — descending
+2. Product ID — ascending for ties
+
+The system supports:
+
+* Top 5
+* Top 10
+* Top 20
+
+### 7. Explainability
+
+Recommendations include evidence-based reason codes such as:
+
+* Frequent
+* Recent
+* Reordered
+* Department Match
+* Aisle Match
+* Popular
+
+---
+
+# 🚀 How to Run the Project
+
+## Prerequisites
+
+Install:
+
+* Python
+* Node.js
+* Git
+
+Clone the repository:
+
+```bash
+git clone https://github.com/Devika-pingili/DecisionPilot.git
+cd DecisionPilot
+```
+
+---
+
+## Backend Setup
+
+Create and activate a virtual environment.
+
+### Windows PowerShell
 
 ```powershell
-Set-Location D:\DecisionPilot
-.\.venv\Scripts\python.exe -m backend.demo.build_demo_data --customer-limit 100
+python -m venv .venv
+.venv\Scripts\Activate.ps1
 ```
 
-The builder selects customer 1 plus up to 99 other customers with at least three prior orders. It writes five schema-compatible CSVs and a copy of the existing model under `data/demo/`; it never modifies the full raw files, full processed index, or original model. It refuses to overwrite an existing `data/demo/` directory.
-
-The generated demo index is local and ignored by Git. In a fresh Render environment, `HistoryStore.from_csv()` creates `data/demo/processed/history.sqlite` from the bounded demo CSVs on startup. The full local `data/processed/history.sqlite` is not required by that deployment.
-
-### Bounded Render Demo Data
-
-To prepare a separate, real-data demo sample from the existing local Instacart files, run once from the repository root:
+Install dependencies:
 
 ```powershell
-.\.venv\Scripts\python.exe -m backend.demo.build_demo_data --customer-limit 100
+pip install -r requirements.txt
 ```
 
-The builder includes customer 1 and other customers with at least three prior orders. It writes only to `data/demo/`, leaves `data/raw/instacart/`, `data/processed/history.sqlite`, and the original model untouched, and refuses to overwrite an existing demo directory. The demo bundle contains the five CSVs required by `HistoryStore.from_csv()` plus a copy of the existing model at `data/demo/processed/ml_dev/model.joblib`.
+Start the FastAPI backend:
 
-The generated `data/demo/processed/history.sqlite` is intentionally ignored by Git. On a fresh Render instance, the backend creates this small index from the bounded demo CSVs on startup; it does not need or use the full local SQLite database. The demo CSVs and copied model are commit-eligible; do not add the full raw data or full processed artifacts.
+```powershell
+uvicorn backend.api.main:app --host 127.0.0.1 --port 8000
+```
 
-## Leakage Prevention
+Backend will run at:
 
-- For target order number `N`, history queries use the strict cutoff `order_number < N`.
-- The target order's products and later orders are excluded from features.
-- Target-order products are read separately to create labels; they are not inputs to the feature builder.
-- Rolling development examples use `prior` orders. `order_products__train.csv` is not used for prediction features.
-- Global product and category aggregates are queried at the target cutoff.
-- Identifier columns and `product_name` are excluded from model predictors; IDs are used for grouping, joining, labels, and output association.
-- Completed target-order outcomes such as target basket size, target reordered-item count, target reorder rate, and target `add_to_cart_order` are not model predictors. Historical, cutoff-aware customer/product reorder rates and basket-size statistics are separate features and are calculated from prior history.
+```text
+http://127.0.0.1:8000
+```
 
-Tests cover target/future-order exclusion, point-in-time cutoffs, and label/feature separation.
+Health check:
 
-## Machine Learning
+```text
+http://127.0.0.1:8000/health
+```
 
-The bounded development dataset is built by generating candidates and point-in-time features for rolling prior-order targets, then labeling whether each candidate appears in that target basket. The split is chronological within each customer: the final `ceil(20%)` of eligible targets per customer are validation targets; earlier eligible targets are used for training. There is no random row shuffle for this split.
+---
 
-The model is a scikit-learn `HistGradientBoostingClassifier` configured in `backend/ml/model.py`. It is trained on numeric features after identifier and product-name columns are excluded. The saved `model.joblib` is loaded by the recommendation service; normal API startup does not retrain it. Inference sorts candidates by descending model score and ascending product ID to break ties deterministically.
+# 🎨 Frontend Setup
 
-Do not interpret model scores as calibrated probabilities.
+Open a second terminal.
 
-## Evaluation
+Move to the frontend directory:
 
-The following values are from the repository's bounded development/validation model artifacts. They describe the documented sample and configuration, not universal or production-wide performance.
+```powershell
+cd frontend
+```
 
-| K | Precision@K | Recall@K | F1@K | MAP@K | NDCG@K |
-| ---: | ---: | ---: | ---: | ---: | ---: |
-| 5 | 0.385714 | 0.325402 | 0.309383 | 0.364485 | 0.462072 |
-| 10 | 0.303247 | 0.489168 | 0.331639 | 0.347099 | 0.477559 |
-| 20 | 0.218344 | 0.658340 | 0.298981 | 0.377631 | 0.536640 |
+Install dependencies:
 
-Candidate recall in the bounded ML validation configuration is **0.948052**. Candidate recall measures whether relevant target products were present in the generated candidate sets before ranking; it is not a ranking metric.
+```powershell
+npm install
+```
 
-## Backend API
+Start the Vue development server:
 
-The FastAPI service exposes:
+```powershell
+npm run dev
+```
 
-| Method and path | Purpose |
-| --- | --- |
-| `GET /` | Service information. |
-| `GET /health` | Checks that recommendation resources are available. |
-| `GET /customers/{customer_id}/summary` | Returns customer-level order and purchase summary data. |
-| `GET /customers/{customer_id}/recommendations?top_k=5&order_number=...` | Returns ranked recommendations; `top_k` is 1–20 and `order_number` is an optional prior-order prediction cutoff. |
-| `POST /customers/{customer_id}/recommendations/explain` | Requests an optional explanation for a product in the server-generated list. The JSON body accepts `product_id`, `top_k`, and optional `order_number`; evidence is derived by the backend. |
-| `GET /diagnostics/ai` | Loopback-only diagnostic endpoint for optional AI configuration and provider status; not a primary user-facing API. |
+The frontend will normally be available at:
 
-## Frontend
+```text
+http://localhost:5173
+```
 
-The Vue 3 + Vite dashboard includes:
+---
 
-- Customer summary cards and customer ID input.
-- Top 5, Top 10, and Top 20 controls plus an optional order cutoff.
-- Recommendation cards with rank, product name, model score, and deterministic reason badges.
-- Customer Insights with purchase behavior, reason breakdown, score summaries, and top recommendation details.
-- A “How It Works” section.
-- Deterministic explanations and a top-recommendation-only optional AI explanation action.
-- Loading, error, and empty states, with responsive desktop and smaller-screen layouts.
+# 🔗 Frontend–Backend Connection
 
-## Technology Stack
+The frontend uses the environment variable:
 
-| Area | Technologies |
-| --- | --- |
-| Backend | Python, FastAPI, Uvicorn, pandas, SQLite |
-| ML | scikit-learn `HistGradientBoostingClassifier`, joblib, NumPy, SciPy |
-| Frontend | Vue 3, Vite, JavaScript, CSS |
-| Tests | pytest, FastAPI `TestClient`, HTTPX |
-| Optional AI | Official OpenAI Python SDK |
+```text
+VITE_API_BASE_URL
+```
 
-## Project Structure
+For local development, the backend is:
+
+```text
+http://127.0.0.1:8000
+```
+
+For the deployed application, the frontend connects to the Render backend.
+
+---
+
+# 📊 Dataset Information
+
+DecisionPilot uses the:
+
+**Instacart Market Basket Analysis Dataset**
+
+Source:
+
+**Kaggle**
+
+Dataset structure:
+
+* `prior` — observed historical purchase history
+* `train` — future labeled holdout
+* `test` — future unlabeled inference population
+
+The system uses historical information before the target order to construct prediction features.
+
+`order_products__train.csv` is not used for feature construction.
+
+---
+
+# 🧠 Machine Learning Pipeline
+
+```text
+Historical Customer Orders
+          ↓
+Point-in-Time Cutoff
+          ↓
+Candidate Products
+          ↓
+Historical Features
+          ↓
+HistGradientBoostingClassifier
+          ↓
+Candidate Scores
+          ↓
+Deterministic Ranking
+          ↓
+Top-K Recommendations
+```
+
+---
+
+# 📈 Evaluation
+
+DecisionPilot evaluates recommendation quality using:
+
+* Precision@K
+* Recall@K
+* F1@K
+* MAP@K
+* NDCG@K
+* Candidate Recall
+
+The evaluation metrics are calculated per customer and target order and then averaged.
+
+The bounded development/validation configuration achieved a candidate recall of:
+
+**0.948052**
+
+---
+
+# 🗄️ Scalable History Index
+
+The complete prior transaction history contains:
+
+**32,434,489 prior transactions**
+
+The project uses a SQLite-backed history index for efficient cutoff-aware historical queries.
+
+Full local history index:
+
+```text
+data/processed/history.sqlite
+```
+
+Approximate size:
+
+**2.14 GB**
+
+The full dataset is kept locally for development.
+
+---
+
+# 🌐 Deployment
+
+DecisionPilot is deployed using:
+
+### Frontend
+
+**Vercel**
+
+### Backend
+
+**Render**
+
+Architecture:
+
+```text
+GitHub
+   ↓
+Vercel
+   ↓
+Vue 3 Frontend
+   ↓
+Render
+   ↓
+FastAPI Backend
+   ↓
+DecisionPilot ML + Data
+```
+
+### Public Demo
+
+Frontend:
+
+https://decision-pilot-nine.vercel.app/
+
+Backend:
+
+https://decisionpilot.onrender.com
+
+The public deployment uses a bounded demo dataset rather than uploading the complete 2.14 GB local history index.
+
+---
+
+# 🧪 Testing
+
+The project includes automated tests covering:
+
+* Data preparation
+* Data validation
+* History indexing
+* Point-in-time behavior
+* Candidate generation
+* Labels
+* Feature construction
+* ML dataset construction
+* Recommendation ranking
+* Leakage prevention
+* API behavior
+* AI fallback behavior
+* Demo-data behavior
+
+Current test status:
+
+**118 Python tests passed**
+
+Frontend production build:
+
+**Passed**
+
+---
+
+# 🤖 Optional AI Explanation
+
+DecisionPilot contains an optional AI explanation layer.
+
+The AI layer does **not**:
+
+* Choose recommendations
+* Rerank products
+* Generate recommendation scores
+* Replace the ML model
+
+Instead, it verbalizes already verified recommendation evidence.
+
+If the AI provider is unavailable, DecisionPilot falls back to its deterministic explanation.
+
+---
+
+# 🔐 Data & Security Considerations
+
+* API keys remain backend-only.
+* `.env` files are ignored.
+* Raw datasets are not exposed publicly.
+* Recommendation evidence is verified server-side.
+* Client-provided reason codes are not trusted.
+* Target-order information is excluded from feature construction.
+* The complete local history database is not publicly deployed.
+
+---
+
+# 📁 Project Structure
 
 ```text
 DecisionPilot/
+│
 ├── backend/
-│   ├── ai/                 # Optional evidence explanation and diagnostics
-│   ├── api/                # FastAPI app and schemas
-│   ├── config.py           # Local/demo data-root resolution
-│   ├── demo/               # Bounded demo artifact builder
-│   ├── evaluation/         # Baselines and ranking metrics
-│   ├── features/           # History, candidates, labels, point-in-time features
-│   ├── ml/                 # Dataset builder, classifier, training/evaluation
-│   ├── recommendation/    # Model loading, ranking, deterministic explanations
-│   ├── inspect_data.py
-│   └── prepare_data.py
+│   ├── api/
+│   ├── features/
+│   ├── recommendation/
+│   └── demo/
+│
 ├── frontend/
-│   ├── public/
-│   ├── src/
-│   │   ├── components/     # Summary, recommendations, insights, states
-│   │   ├── services/       # Backend API client
-│   │   └── views/          # Dashboard
-│   ├── package.json
-│   ├── package-lock.json
-│   └── vite.config.js
+│   └── src/
+│       ├── components/
+│       ├── services/
+│       └── views/
+│
+├── data/
+│   ├── raw/
+│   ├── processed/
+│   └── demo/
+│
 ├── tests/
+│
 ├── requirements.txt
 ├── requirements-dev.txt
-└── README.md
+├── README.md
+└── .gitignore
 ```
 
-Raw datasets, the SQLite history index, saved model, and generated evaluation/training files are local artifacts and are excluded from Git. `.venv/`, `frontend/node_modules/`, and `frontend/dist/` are also ignored.
+---
 
-## Installation and Setup
+# ⭐ Key Features
 
-Verified local runtime: Python 3.13.1. Install backend and test dependencies from PowerShell at the repository root:
+* Personalized next-basket prediction
+* Point-in-time feature construction
+* Leakage prevention
+* Candidate generation
+* Customer-specific behavioral signals
+* Department and aisle affinity
+* Global popularity fallback
+* Machine-learning ranking
+* Deterministic Top-K recommendations
+* Evidence-based explanations
+* Optional AI explanations
+* SQLite-backed historical index
+* FastAPI REST API
+* Vue 3 interactive dashboard
+* Automated testing
+* Public bounded demo deployment
 
-```powershell
-Set-Location D:\DecisionPilot
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements-dev.txt
-```
+---
 
-The saved model was verified with `scikit-learn==1.8.0`, which is pinned in `requirements.txt`. Avoid changing that version without validating the saved model artifact. For this existing workspace, the prepared data, SQLite index, and saved model already exist locally; normal demo startup does not require data preparation, index rebuilding, or model training.
+# 🎯 Conclusion
 
-## Run the Application
-
-Start the backend first in one PowerShell terminal:
-
-```powershell
-Set-Location D:\DecisionPilot
-.\.venv\Scripts\python.exe -m uvicorn backend.api.main:app --host 127.0.0.1 --port 8000
-```
-
-Then start the frontend in a second terminal:
-
-```powershell
-Set-Location D:\DecisionPilot\frontend
-npm ci
-npm run dev -- --host 0.0.0.0 --port 5173
-```
-
-Open the dashboard at [http://localhost:5173/](http://localhost:5173/). The frontend defaults to the API at `http://127.0.0.1:8000`; `VITE_API_BASE_URL` is an optional URL override, not a secret. Backend CORS allows the local frontend origin on port 5173.
-
-For a production Vite build, configure the frontend hosting provider's build environment with:
+DecisionPilot combines historical purchase behavior, point-in-time feature engineering, candidate generation, machine learning, and full-stack web technologies to create personalized next-basket product rankings.
 
 ```text
-VITE_API_BASE_URL=https://decisionpilot.onrender.com
+Purchase History
+      ↓
+Point-in-Time Data
+      ↓
+Candidate Generation
+      ↓
+Feature Engineering
+      ↓
+ML Ranking
+      ↓
+Personalized Recommendations
+      ↓
+FastAPI
+      ↓
+Vue Dashboard
 ```
 
-Vite embeds `VITE_` variables during the build. This variable is only the public API base URL; never place credentials in frontend `VITE_` variables. Set it before running `npm run build` or triggering the hosted build.
-
-The backend preserves its localhost CORS origins. After the frontend is deployed and its real origin is known, add that exact origin (scheme and host, without a path) to the backend environment variable `DECISIONPILOT_CORS_ORIGINS`. Multiple additional origins may be comma-separated. Wildcards are rejected. Do not set a guessed frontend domain.
-
-With no `DECISIONPILOT_DATA_ROOT`, local startup uses the already-prepared `data/processed/history.sqlite` and `data/processed/ml_dev/model.joblib`. Do not rerun data preparation or model training for normal local startup when those artifacts are present.
-
-For a Render demo, commit only the bounded demo CSVs and the copied model under `data/demo/`. In the Render service's environment settings, set:
-
-```text
-DECISIONPILOT_DATA_ROOT=data/demo
-```
-
-Use this Render Start Command:
-
-```text
-uvicorn backend.api.main:app --host 0.0.0.0 --port $PORT
-```
-
-Without `DECISIONPILOT_DATA_ROOT`, local startup continues to use `data/raw/instacart/`, `data/processed/history.sqlite`, and `data/processed/ml_dev/model.joblib`.
-
-### Render Start Command
-
-For a Render Python web service, use this Start Command:
-
-```text
-uvicorn backend.api.main:app --host 0.0.0.0 --port $PORT
-```
-
-Uvicorn supplies the network binding; the FastAPI application itself does not fix a host or port. Keep the local PowerShell command above for development. Render's ephemeral filesystem will receive the small bounded source files and model from the repository and build its own demo SQLite index at startup. The 2+ GiB full local index and full raw dataset are neither uploaded nor required. No Dockerfile or deployment configuration file is required for this command-based setup.
-
-## Optional AI Configuration
-
-The AI explanation layer is optional. To enable provider requests, configure these variables in the **backend process environment only** before starting Uvicorn:
-
-- `DECISIONPILOT_AI_API_KEY`: OpenAI API credential.
-- `DECISIONPILOT_AI_MODEL`: optional model name; the default is `gpt-4o-mini`.
-
-Example for the current PowerShell session (replace the placeholder locally; never commit a real credential):
-
-```powershell
-$env:DECISIONPILOT_AI_API_KEY = '<your API key>'
-$env:DECISIONPILOT_AI_MODEL = 'gpt-4o-mini'
-```
-
-The backend reads these values from its process environment; it does not load a `.env` file. Root `.gitignore` excludes `.env` and `.env.*`. Never put provider credentials in Vue code, frontend `VITE_` variables, or committed files.
-
-AI is requested only when the user selects **Explain this recommendation**. The backend verifies the product and evidence first and sends only product name and verified reason evidence to the provider. AI does not change recommendations. Without a key, with provider errors/timeouts, or without usable provider quota, the deterministic explanation remains available. Live provider generation is not confirmed for the current demo environment; it depends on external provider configuration and account availability.
-
-## Testing and Build
-
-Run the Python test suite from the repository root:
-
-```powershell
-Set-Location D:\DecisionPilot
-.\.venv\Scripts\python.exe -m pytest
-```
-
-Verified result: **108 passed, 0 failed, 0 skipped**, with one non-blocking Starlette/httpx deprecation warning.
-
-Build the frontend production bundle:
-
-```powershell
-Set-Location D:\DecisionPilot\frontend
-npm run build
-```
-
-The production build completed successfully in the verified environment.
-
-## Demo Flow
-
-1. Start the backend, then the frontend.
-2. Open the dashboard and use Customer 1.
-3. Review the customer summary and generate the default Top 5 list.
-4. Change Top K to 10 and 20 and generate each list.
-5. Inspect the top recommendation, score, and evidence badges.
-6. Review Customer Insights and the “How It Works” section.
-7. Show the deterministic explanation and click “Explain this recommendation.”
-8. In the current provider-disabled demo environment, show the unavailable message while deterministic evidence and recommendations remain visible.
-
-## Security and Data Handling
-
-- Optional provider credentials are read by the backend from environment variables only.
-- `.env` and `.env.*` are ignored; no API key belongs in source code or frontend variables.
-- Raw Instacart data, SQLite history, model binaries, and generated training/evaluation outputs are not committed.
-- `.venv/`, `frontend/node_modules/`, and `frontend/dist/` are ignored.
-- The AI provider receives only the selected product name and verified evidence, not customer/order IDs or complete purchase history.
-
-## Limitations
-
-- Reported metrics are from a bounded development/validation configuration and should not be generalized to all customers or production traffic.
-- Candidate generation bounds its sources and candidate list; it may not include every relevant product.
-- Model scores are for ranking and are not calibrated probabilities.
-- The project reflects the available historical Instacart data and its limitations.
-- Live AI explanation depends on external provider availability, valid backend configuration, network access, and account quota; the core recommendation system does not depend on it.
-- The current data/model workflow is a local project/demo setup, not a claim of production deployment or production-scale operation.
-
-## Future Enhancements
-
-Possible future work, not currently implemented, includes broader training and evaluation, ranking-specific models, additional temporal and personalization signals, online feedback and retraining, production storage/deployment, authentication, monitoring, and additional evaluation metrics.
-
-## Project Context
-
-DecisionPilot is an academic/portfolio project. No license file is present in the repository; no license is asserted here.
+**DecisionPilot — using what a customer has bought before to rank what they may buy next.**
