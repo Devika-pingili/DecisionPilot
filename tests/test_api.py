@@ -35,6 +35,25 @@ class RecommendationApiTests(unittest.TestCase):
         )
         self.assertEqual(self.client.get("/health").json(), {"status": "healthy"})
 
+    def test_ai_diagnostics_are_loopback_only_and_do_not_include_credentials(self):
+        response = self.client.get("/diagnostics/ai")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(
+            set(payload),
+            {
+                "api_key_configured",
+                "model_configured",
+                "model_configuration",
+                "client_initialization",
+                "provider_request_attempted",
+                "last_error_type",
+                "last_error_message",
+            },
+        )
+        self.assertNotIn("api_key", payload)
+
     def test_cors_allows_only_configured_local_frontend_origins(self):
         allowed = self.client.options(
             "/health",
@@ -152,6 +171,41 @@ class RecommendationApiTests(unittest.TestCase):
         self.assertEqual(invalid_customer.status_code, 404)
         self.assertEqual(invalid_context.status_code, 400)
         self.assertEqual(unranked_product.status_code, 404)
+
+    def test_explanation_endpoint_validates_request_and_uses_requested_cutoff(self):
+        recommendations = self.client.get(
+            "/customers/10/recommendations?top_k=2&order_number=2"
+        ).json()["recommendations"]
+        selected = recommendations[0]
+
+        invalid_product = self.client.post(
+            "/customers/10/recommendations/explain",
+            json={"product_id": 0, "top_k": 2, "order_number": 2},
+        )
+        invalid_top_k = self.client.post(
+            "/customers/10/recommendations/explain",
+            json={"product_id": selected["product_id"], "top_k": 21, "order_number": 2},
+        )
+        with patch(
+            "backend.api.main.generate_ai_explanation",
+            return_value="This product matches verified shopping evidence.",
+        ) as explain:
+            response = self.client.post(
+                "/customers/10/recommendations/explain",
+                json={
+                    "product_id": selected["product_id"],
+                    "top_k": 2,
+                    "order_number": 2,
+                },
+            )
+
+        self.assertEqual(invalid_product.status_code, 422)
+        self.assertEqual(invalid_top_k.status_code, 422)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["reason_codes"], selected["explanation_reason_codes"])
+        explain.assert_called_once_with(
+            selected["product_name"], selected["explanation_reason_codes"]
+        )
 
     def test_recommendation_order_is_deterministic(self):
         first = self.client.get("/customers/10/recommendations?top_k=5").json()

@@ -45,6 +45,16 @@ class RecommendationExplanationResponse(BaseModel):
     message: str | None = None
 
 
+class AIProviderDiagnostics(BaseModel):
+    api_key_configured: bool
+    model_configured: bool
+    model_configuration: str
+    client_initialization: str
+    provider_request_attempted: bool
+    last_error_type: str | None = None
+    last_error_message: str | None = None
+
+
 class CustomerSummary(BaseModel):
     customer_id: int
     total_orders: int

@@ -13,8 +13,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
-from backend.ai.explanation import generate_ai_explanation
+from backend.ai.explanation import generate_ai_explanation, get_ai_provider_diagnostics
 from backend.api.schemas import (
+    AIProviderDiagnostics,
     CustomerSummary,
     HealthResponse,
     RecommendationExplanationRequest,
@@ -150,6 +151,13 @@ def create_app(
     async def health(request: Request) -> HealthResponse:
         _resources(request)
         return HealthResponse(status="healthy")
+
+    @application.get("/diagnostics/ai", response_model=AIProviderDiagnostics)
+    async def ai_diagnostics(request: Request) -> AIProviderDiagnostics:
+        client_host = request.client.host if request.client is not None else ""
+        if client_host not in {"127.0.0.1", "::1", "testclient"}:
+            raise HTTPException(status_code=404, detail="Not found.")
+        return AIProviderDiagnostics(**get_ai_provider_diagnostics())
 
     @application.get(
         "/customers/{customer_id}/recommendations",
