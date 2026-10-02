@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -91,6 +92,39 @@ class RecommendationApiTests(unittest.TestCase):
             },
         )
         self.assertNotIn("access-control-allow-origin", blocked.headers)
+
+    def test_cors_merges_configured_production_origin_with_local_origins(self):
+        with patch.dict(
+            os.environ,
+            {"DECISIONPILOT_CORS_ORIGINS": "https://frontend.example.test"},
+        ):
+            application = create_app(history=self.history, model=self.model)
+            with TestClient(application) as client:
+                production = client.options(
+                    "/health",
+                    headers={
+                        "Origin": "https://frontend.example.test",
+                        "Access-Control-Request-Method": "GET",
+                    },
+                )
+                local = client.options(
+                    "/health",
+                    headers={
+                        "Origin": "http://localhost:5173",
+                        "Access-Control-Request-Method": "GET",
+                    },
+                )
+
+        self.assertEqual(
+            production.headers["access-control-allow-origin"],
+            "https://frontend.example.test",
+        )
+        self.assertEqual(local.headers["access-control-allow-origin"], "http://localhost:5173")
+
+    def test_cors_rejects_wildcard_configuration(self):
+        with patch.dict(os.environ, {"DECISIONPILOT_CORS_ORIGINS": "*"}):
+            with self.assertRaisesRegex(ValueError, "must not contain a wildcard"):
+                create_app(history=self.history, model=self.model)
 
     def test_recommendations_schema_and_ranking(self):
         response = self.client.get("/customers/10/recommendations?top_k=5")

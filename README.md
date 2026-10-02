@@ -287,6 +287,16 @@ npm run dev -- --host 0.0.0.0 --port 5173
 
 Open the dashboard at [http://localhost:5173/](http://localhost:5173/). The frontend defaults to the API at `http://127.0.0.1:8000`; `VITE_API_BASE_URL` is an optional URL override, not a secret. Backend CORS allows the local frontend origin on port 5173.
 
+For a production Vite build, configure the frontend hosting provider's build environment with:
+
+```text
+VITE_API_BASE_URL=https://decisionpilot.onrender.com
+```
+
+Vite embeds `VITE_` variables during the build. This variable is only the public API base URL; never place credentials in frontend `VITE_` variables. Set it before running `npm run build` or triggering the hosted build.
+
+The backend preserves its localhost CORS origins. After the frontend is deployed and its real origin is known, add that exact origin (scheme and host, without a path) to the backend environment variable `DECISIONPILOT_CORS_ORIGINS`. Multiple additional origins may be comma-separated. Wildcards are rejected. Do not set a guessed frontend domain.
+
 With no `DECISIONPILOT_DATA_ROOT`, local startup uses the already-prepared `data/processed/history.sqlite` and `data/processed/ml_dev/model.joblib`. Do not rerun data preparation or model training for normal local startup when those artifacts are present.
 
 For a Render demo, commit only the bounded demo CSVs and the copied model under `data/demo/`. In the Render service's environment settings, set:

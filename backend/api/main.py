@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Optional
+from urllib.parse import urlsplit
 
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Path as PathParameter, Query, Request
@@ -33,6 +35,29 @@ DEFAULT_LOCAL_DATA_PATHS = resolve_data_paths(DEFAULT_DATA_ROOT)
 DEFAULT_RAW_DIR = DEFAULT_LOCAL_DATA_PATHS.raw_dir
 DEFAULT_INDEX_PATH = DEFAULT_LOCAL_DATA_PATHS.index_path
 ALLOWED_ORIGINS = ["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"]
+
+
+def _cors_origins() -> list[str]:
+    origins = list(ALLOWED_ORIGINS)
+    configured_origins = os.getenv("DECISIONPILOT_CORS_ORIGINS", "")
+    for value in configured_origins.split(","):
+        origin = value.strip().rstrip("/")
+        if not origin:
+            continue
+        if origin == "*":
+            raise ValueError("DECISIONPILOT_CORS_ORIGINS must not contain a wildcard origin")
+        parsed = urlsplit(origin)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or parsed.path
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("DECISIONPILOT_CORS_ORIGINS must contain comma-separated origins")
+        if origin not in origins:
+            origins.append(origin)
+    return origins
 
 
 def _resolve_prediction_context(
@@ -134,7 +159,7 @@ def create_app(
     )
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=ALLOWED_ORIGINS,
+        allow_origins=_cors_origins(),
         allow_credentials=True,
         allow_methods=["GET", "POST"],
         allow_headers=["Content-Type"],
