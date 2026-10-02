@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_RAW_DIR = REPOSITORY_ROOT / "data" / "raw" / "instacart"
 DEFAULT_INDEX_PATH = REPOSITORY_ROOT / "data" / "processed" / "history.sqlite"
-ALLOWED_ORIGINS = ["http://localhost:3000", "http://localhost:5173"]
+ALLOWED_ORIGINS = ["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"]
 
 
 def _resolve_prediction_context(

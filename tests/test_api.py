@@ -63,6 +63,17 @@ class RecommendationApiTests(unittest.TestCase):
             },
         )
         self.assertEqual(allowed.headers["access-control-allow-origin"], "http://localhost:5173")
+        vite_fallback = self.client.options(
+            "/health",
+            headers={
+                "Origin": "http://localhost:5174",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+        self.assertEqual(
+            vite_fallback.headers["access-control-allow-origin"],
+            "http://localhost:5174",
+        )
         blocked = self.client.options(
             "/health",
             headers={
