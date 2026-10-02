@@ -21,6 +21,13 @@ env/
 data/raw/
 data/processed/
 
+# The bounded demo CSVs and saved model are intentionally commit-eligible.
+# Its generated SQLite index is rebuilt from those CSVs on a fresh deployment.
+data/demo/processed/history.sqlite
+data/demo/processed/history.sqlite-journal
+data/demo/processed/history.sqlite-wal
+data/demo/processed/history.sqlite-shm
+
 # Local logs and temporary files
 *.log
 *.tmp

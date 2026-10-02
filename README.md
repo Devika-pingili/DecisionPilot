@@ -131,6 +131,31 @@ The repository's current ML development artifact was built with a bounded config
 
 Raw source data and processed outputs are expected locally under `data/raw/instacart/` and `data/processed/`. They are excluded from Git. A fresh clone does not include these data or model artifacts; the demo commands below assume the existing local artifacts are already available.
 
+### Prepare a Bounded Render Demo
+
+From a workspace with the full raw Instacart CSVs and saved model, create a bounded demo bundle once:
+
+```powershell
+Set-Location D:\DecisionPilot
+.\.venv\Scripts\python.exe -m backend.demo.build_demo_data --customer-limit 100
+```
+
+The builder selects customer 1 plus up to 99 other customers with at least three prior orders. It writes five schema-compatible CSVs and a copy of the existing model under `data/demo/`; it never modifies the full raw files, full processed index, or original model. It refuses to overwrite an existing `data/demo/` directory.
+
+The generated demo index is local and ignored by Git. In a fresh Render environment, `HistoryStore.from_csv()` creates `data/demo/processed/history.sqlite` from the bounded demo CSVs on startup. The full local `data/processed/history.sqlite` is not required by that deployment.
+
+### Bounded Render Demo Data
+
+To prepare a separate, real-data demo sample from the existing local Instacart files, run once from the repository root:
+
+```powershell
+.\.venv\Scripts\python.exe -m backend.demo.build_demo_data --customer-limit 100
+```
+
+The builder includes customer 1 and other customers with at least three prior orders. It writes only to `data/demo/`, leaves `data/raw/instacart/`, `data/processed/history.sqlite`, and the original model untouched, and refuses to overwrite an existing demo directory. The demo bundle contains the five CSVs required by `HistoryStore.from_csv()` plus a copy of the existing model at `data/demo/processed/ml_dev/model.joblib`.
+
+The generated `data/demo/processed/history.sqlite` is intentionally ignored by Git. On a fresh Render instance, the backend creates this small index from the bounded demo CSVs on startup; it does not need or use the full local SQLite database. The demo CSVs and copied model are commit-eligible; do not add the full raw data or full processed artifacts.
+
 ## Leakage Prevention
 
 - For target order number `N`, history queries use the strict cutoff `order_number < N`.
@@ -205,6 +230,8 @@ DecisionPilot/
 ├── backend/
 │   ├── ai/                 # Optional evidence explanation and diagnostics
 │   ├── api/                # FastAPI app and schemas
+│   ├── config.py           # Local/demo data-root resolution
+│   ├── demo/               # Bounded demo artifact builder
 │   ├── evaluation/         # Baselines and ranking metrics
 │   ├── features/           # History, candidates, labels, point-in-time features
 │   ├── ml/                 # Dataset builder, classifier, training/evaluation
@@ -260,7 +287,21 @@ npm run dev -- --host 0.0.0.0 --port 5173
 
 Open the dashboard at [http://localhost:5173/](http://localhost:5173/). The frontend defaults to the API at `http://127.0.0.1:8000`; `VITE_API_BASE_URL` is an optional URL override, not a secret. Backend CORS allows the local frontend origin on port 5173.
 
-The backend requires the already-prepared `data/processed/history.sqlite` and `data/processed/ml_dev/model.joblib`. These generated artifacts are not included in Git. Do not rerun data preparation or model training for normal startup when the local artifacts are present.
+With no `DECISIONPILOT_DATA_ROOT`, local startup uses the already-prepared `data/processed/history.sqlite` and `data/processed/ml_dev/model.joblib`. Do not rerun data preparation or model training for normal local startup when those artifacts are present.
+
+For a Render demo, commit only the bounded demo CSVs and the copied model under `data/demo/`. In the Render service's environment settings, set:
+
+```text
+DECISIONPILOT_DATA_ROOT=data/demo
+```
+
+Use this Render Start Command:
+
+```text
+uvicorn backend.api.main:app --host 0.0.0.0 --port $PORT
+```
+
+Without `DECISIONPILOT_DATA_ROOT`, local startup continues to use `data/raw/instacart/`, `data/processed/history.sqlite`, and `data/processed/ml_dev/model.joblib`.
 
 ### Render Start Command
 
@@ -270,7 +311,7 @@ For a Render Python web service, use this Start Command:
 uvicorn backend.api.main:app --host 0.0.0.0 --port $PORT
 ```
 
-Uvicorn supplies the network binding; the FastAPI application itself does not fix a host or port. Keep the local PowerShell command above for development. The history database and saved model are intentionally not stored in Git, so a cloud service also needs those existing artifacts provisioned at the paths expected by the backend before it can serve recommendations. No Dockerfile or deployment configuration file is required for this command-based setup.
+Uvicorn supplies the network binding; the FastAPI application itself does not fix a host or port. Keep the local PowerShell command above for development. Render's ephemeral filesystem will receive the small bounded source files and model from the repository and build its own demo SQLite index at startup. The 2+ GiB full local index and full raw dataset are neither uploaded nor required. No Dockerfile or deployment configuration file is required for this command-based setup.
 
 ## Optional AI Configuration
 

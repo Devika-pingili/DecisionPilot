@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from backend.ai.explanation import generate_ai_explanation, get_ai_provider_diagnostics
+from backend.config import DEFAULT_DATA_ROOT, PROJECT_ROOT, resolve_data_paths
 from backend.api.schemas import (
     AIProviderDiagnostics,
     CustomerSummary,
@@ -25,12 +26,12 @@ from backend.api.schemas import (
     ServiceInfo,
 )
 from backend.features.history import HistoryStore
-from backend.recommendation.recommend import DEFAULT_MODEL_PATH, load_model, recommend_products
+from backend.recommendation.recommend import load_model, recommend_products
 
 logger = logging.getLogger(__name__)
-REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_RAW_DIR = REPOSITORY_ROOT / "data" / "raw" / "instacart"
-DEFAULT_INDEX_PATH = REPOSITORY_ROOT / "data" / "processed" / "history.sqlite"
+DEFAULT_LOCAL_DATA_PATHS = resolve_data_paths(DEFAULT_DATA_ROOT)
+DEFAULT_RAW_DIR = DEFAULT_LOCAL_DATA_PATHS.raw_dir
+DEFAULT_INDEX_PATH = DEFAULT_LOCAL_DATA_PATHS.index_path
 ALLOWED_ORIGINS = ["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"]
 
 
@@ -83,13 +84,17 @@ def create_app(
     *,
     history: Optional[HistoryStore] = None,
     model=None,
-    raw_dir: Path = DEFAULT_RAW_DIR,
-    index_path: Path = DEFAULT_INDEX_PATH,
-    model_path: Path = DEFAULT_MODEL_PATH,
+    raw_dir: Optional[Path] = None,
+    index_path: Optional[Path] = None,
+    model_path: Optional[Path] = None,
 ) -> FastAPI:
     """Build an application with model and indexed history cached for its lifetime."""
     injected_history = history
     injected_model = model
+    configured_paths = resolve_data_paths()
+    active_raw_dir = Path(raw_dir) if raw_dir is not None else configured_paths.raw_dir
+    active_index_path = Path(index_path) if index_path is not None else configured_paths.index_path
+    active_model_path = Path(model_path) if model_path is not None else configured_paths.model_path
 
     @asynccontextmanager
     async def lifespan(application: FastAPI):
@@ -98,17 +103,17 @@ def create_app(
         application.state.resource_error = None
         try:
             if application.state.history is None:
-                if not Path(index_path).is_file():
+                if not active_index_path.is_file() and not configured_paths.build_index_if_missing:
                     application.state.resource_error = "Indexed customer history is unavailable."
                 else:
                     application.state.history = HistoryStore.from_csv(
-                        Path(raw_dir), index_path=Path(index_path), progress=False
+                        active_raw_dir, index_path=active_index_path, progress=False
                     )
             if application.state.model is None and application.state.resource_error is None:
-                if not Path(model_path).is_file():
+                if not active_model_path.is_file():
                     application.state.resource_error = "The recommendation model is unavailable."
                 else:
-                    application.state.model = load_model(Path(model_path))
+                    application.state.model = load_model(active_model_path)
         except Exception:
             logger.exception("DecisionPilot API resource initialization failed")
             application.state.resource_error = "Recommendation resources are unavailable."
